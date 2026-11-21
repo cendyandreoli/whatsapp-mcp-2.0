@@ -25,15 +25,10 @@ jobs:
     runs-on: [self-hosted, ocr-review]
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: Revisão (Open Code Review)
         env:
           GH_TOKEN: ${{ github.token }}
+        # O script baixa o código do PR sozinho (sem actions/checkout) e faz a revisão.
         run: |
           d="$RUNNER_TEMP/code-review"
           rm -rf "$d"

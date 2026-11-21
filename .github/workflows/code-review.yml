@@ -1,0 +1,41 @@
+# Revisão de código automática em cada PR (Open Code Review em modo delegação + Claude Code do servidor).
+# Modelo em cendyandreoli/code-review (workflow/code-review.yml); copie igual para .github/workflows/code-review.yml.
+# Roda só no runner próprio com a label ocr-review (caotec-agentes), nunca em runner pago do GitHub.
+# Falha só com achado grave (segurança, vazamento entre contas, dinheiro/fiscal, crash); o resto vira comentário.
+name: code-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Um push novo cancela a revisão anterior do mesmo PR.
+concurrency:
+  group: code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ocr:
+    name: OCR review
+    # Rascunho não gasta revisão; PR de fork não roda no nosso servidor.
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: [self-hosted, ocr-review]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Revisão (Open Code Review)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          d="$RUNNER_TEMP/code-review"
+          rm -rf "$d"
+          git clone -q --depth 1 git@github.com:cendyandreoli/code-review.git "$d"
+          bash "$d/bin/ocr-pr-review.sh"
